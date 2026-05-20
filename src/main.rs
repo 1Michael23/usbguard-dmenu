@@ -85,9 +85,19 @@ fn run_fuzzel(prompt: &str, items: &[String]) -> io::Result<Option<String>> {
 }
 
 fn format_device(device: &Device) -> String {
+    let status = match device.target.as_str() {
+        "block" => "BLOCKED",
+        "reject" => "REJECT",
+        _ => "ALLOW",
+    };
     format!(
-        "{}: {} ({}) [port: {}, type: {}]",
-        device.id, device.name, device.vendor_product, device.port, device.connect_type
+        "[{status}] {id}: {name} ({vp}) [port: {port}, type: {connect_type}]",
+        status = status,
+        id = device.id,
+        name = device.name,
+        vp = device.vendor_product,
+        port = device.port,
+        connect_type = device.connect_type
     )
 }
 
@@ -123,14 +133,15 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
-    // Sort: blocked first, then others
+    // Sort: untrusted first, then others
+    let is_untrusted = |target: &str| matches!(target, "block" | "reject");
     devices.sort_by(|a, b| {
-        let a_score = i32::from(a.target != "block");
-        let b_score = i32::from(b.target != "block");
+        let a_score = i32::from(!is_untrusted(&a.target));
+        let b_score = i32::from(!is_untrusted(&b.target));
         a_score.cmp(&b_score).then_with(|| a.id.cmp(&b.id))
     });
 
-    let has_blocked = devices.iter().any(|d| d.target == "block");
+    let has_blocked = devices.iter().any(|d| is_untrusted(&d.target));
 
     let mut items: Vec<String> = Vec::new();
     if !has_blocked {
@@ -147,9 +158,9 @@ fn main() -> io::Result<()> {
     }
 
     let device_id: u32 = selection
-        .split(':')
-        .next()
-        .and_then(|s| s.trim().parse().ok())
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.trim_end_matches(':').parse().ok())
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid selection"))?;
 
     let device = devices
