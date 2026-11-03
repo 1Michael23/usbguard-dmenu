@@ -59,9 +59,17 @@ fn list_devices() -> io::Result<Vec<Device>> {
     Ok(parse_devices(&stdout))
 }
 
-fn run_fuzzel(prompt: &str, items: &[String]) -> io::Result<Option<String>> {
-    let mut child = Command::new("fuzzel")
-        .args(["--dmenu", "--prompt", prompt])
+fn run_dmenu(launcher: &[String], prompt: &str, items: &[String]) -> io::Result<Option<String>> {
+    let (cmd, args) = launcher
+        .split_first()
+        .expect("launcher must have at least one element");
+    let args_with_prompt: Vec<&str> = args
+        .iter()
+        .map(String::as_str)
+        .chain(std::iter::once(prompt))
+        .collect();
+    let mut child = Command::new(cmd)
+        .args(&args_with_prompt)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -125,11 +133,22 @@ fn execute_action(device_id: u32, action: &str) -> io::Result<()> {
 }
 
 fn main() -> io::Result<()> {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let launcher: Vec<String> = if args.is_empty() {
+        vec![
+            "fuzzel".to_string(),
+            "--dmenu".to_string(),
+            "--prompt".to_string(),
+        ]
+    } else {
+        args
+    };
+
     let mut devices = list_devices()?;
 
     if devices.is_empty() {
         let notice = vec!["No blocked devices".to_string()];
-        run_fuzzel("Notice: ", &notice)?;
+        run_dmenu(&launcher, "Notice: ", &notice)?;
         return Ok(());
     }
 
@@ -149,7 +168,7 @@ fn main() -> io::Result<()> {
     }
     items.extend(devices.iter().map(format_device));
 
-    let Some(selection) = run_fuzzel("Device: ", &items)? else {
+    let Some(selection) = run_dmenu(&launcher, "Device: ", &items)? else {
         return Ok(());
     };
 
@@ -176,7 +195,7 @@ fn main() -> io::Result<()> {
         "Cancel".to_string(),
     ];
 
-    let Some(action) = run_fuzzel("Action: ", &actions)? else {
+    let Some(action) = run_dmenu(&launcher, "Action: ", &actions)? else {
         return Ok(());
     };
 

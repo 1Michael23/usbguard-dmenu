@@ -1,5 +1,5 @@
 {
-  description = "usbguard interface to list and allow devices with fuzzel";
+  description = "usbguard interface to list and allow devices via any dmenu-compatible launcher";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -25,20 +25,20 @@
       in
       {
         packages.default = rustPlatform.buildRustPackage {
-          pname = "usbguard-fuzzel";
+          pname = "usbguard-dmenu";
           version = "0.1.0";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           nativeBuildInputs = [ pkgs.pkg-config pkgs.makeWrapper ];
-          buildInputs = [ pkgs.usbguard pkgs.fuzzel ];
+          buildInputs = [ pkgs.usbguard ];
           postInstall = ''
-            wrapProgram $out/bin/usbguard-fuzzel \
-              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.usbguard pkgs.fuzzel ]}
+            wrapProgram $out/bin/usbguard-dmenu \
+              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.usbguard ]}
           '';
         };
 
         checks.default = rustPlatform.buildRustPackage {
-          pname = "usbguard-fuzzel-check";
+          pname = "usbguard-dmenu-check";
           version = "0.1.0";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
@@ -56,7 +56,7 @@
 
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = [ rustToolchain pkgs.pkg-config ];
-          buildInputs = [ pkgs.usbguard pkgs.fuzzel ];
+          buildInputs = [ pkgs.usbguard ];
         };
       });
 }
